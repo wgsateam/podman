@@ -40,7 +40,7 @@ class podman::install {
     }
   }
 
-  if ($::selinux or $facts['os']['selinux']['enabled']) and (($facts['os']['family'] == 'RedHat') and (Integer($facts['os']['release']['major']) > 7)) {
+  if $::selinux or $facts['os']['selinux']['enabled'] {
     selboolean { 'container_manage_cgroup':
       persistent => true,
       value      => on,
