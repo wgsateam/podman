@@ -22,9 +22,9 @@
 #   }
 #
 define podman::volume (
-  String $ensure = 'present',
-  Hash $flags    = {},
-  String $user   = '',
+  Enum['present', 'absent'] $ensure = 'present',
+  Hash                      $flags  = {},
+  Optional[String]          $user   = undef,
 ) {
   require podman::install
 
@@ -42,29 +42,23 @@ define podman::volume (
     }
   }
 
-  if $user != '' {
+  if $user != undef and $user != '' {
     ensure_resource('podman::rootless', $user, {})
 
     # Set execution environment for the rootless user
     $exec_defaults = {
-      path        => '/sbin:/usr/sbin:/bin:/usr/bin',
+      cwd         => User[$user]['home'],
+      provider    => 'shell',
+      user        => $user,
+      require     => [Podman::Rootless[$user]],
       environment => [
         "HOME=${User[$user]['home']}",
         "XDG_RUNTIME_DIR=/run/user/${User[$user]['uid']}",
         "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${User[$user]['uid']}/bus",
       ],
-      cwd         => User[$user]['home'],
-      provider    => 'shell',
-      user        => $user,
-      require     => [
-        Podman::Rootless[$user],
-        Service['podman systemd-logind'],
-      ],
     }
   } else {
-    $exec_defaults = {
-      path        => '/sbin:/usr/sbin:/bin:/usr/bin',
-    }
+    $exec_defaults = {}
   }
 
   case $ensure {
@@ -72,19 +66,17 @@ define podman::volume (
       exec { "podman_create_volume_${title}":
         command => "podman volume create ${_flags} ${title}",
         unless  => "podman volume inspect ${title}",
-        *       => $exec_defaults,
-      }
-    }
-    'absent': {
-      exec { "podman_remove_volume_${title}":
-        command => "podman volume rm ${title}",
-        unless  => "podman volume inspect ${title}; test $? -ne 0",
+        path    => '/sbin:/usr/sbin:/bin:/usr/bin',
         *       => $exec_defaults,
       }
     }
     default: {
-      fail('"ensure" must be "present" or "absent"')
+      exec { "podman_remove_volume_${title}":
+        command => "podman volume rm ${title}",
+        unless  => "podman volume inspect ${title}; test $? -ne 0",
+        path    => '/sbin:/usr/sbin:/bin:/usr/bin',
+        *       => $exec_defaults,
+      }
     }
   }
 }
-

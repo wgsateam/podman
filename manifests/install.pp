@@ -2,7 +2,7 @@
 # @api private
 #
 class podman::install {
-  ensure_resource('Package', $podman::podman_pkg, { 'ensure' => 'installed' })
+  ensure_resource('Package', $podman::podman_pkg, { 'ensure' => $podman::podman_pkg_ensure })
   ensure_resource('Package', $podman::skopeo_pkg, { 'ensure' => 'installed' })
   ensure_resource('Package', $podman::buildah_pkg, { 'ensure' => $podman::buildah_pkg_ensure })
   ensure_resource('Package', $podman::podman_docker_pkg, { 'ensure' => $podman::podman_docker_pkg_ensure })
@@ -18,17 +18,16 @@ class podman::install {
       ensure_newline => true,
     }
 
-    concat_fragment {
-      default:
-        order   => 1,
-        content => $podman::file_header,
-      ;
-      'subuid_header':
-        target  => '/etc/subuid',
-      ;
-      'subgid_header':
-        target  => '/etc/subgid',
-      ;
+    concat_fragment { 'subuid_header':
+      target  => '/etc/subuid',
+      order   => 1,
+      content => $podman::file_header,
+    }
+
+    concat_fragment { 'subgid_header':
+      target  => '/etc/subgid',
+      order   => 1,
+      content => $podman::file_header,
     }
 
     if $podman::match_subuid_subgid {
@@ -40,7 +39,7 @@ class podman::install {
     }
   }
 
-  if $::selinux or $facts['os']['selinux']['enabled'] {
+  if $facts['os']['selinux']['enabled'] == true {
     selboolean { 'container_manage_cgroup':
       persistent => true,
       value      => on,

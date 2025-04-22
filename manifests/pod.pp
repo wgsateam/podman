@@ -21,15 +21,15 @@
 #   }
 #
 define podman::pod (
-  String $ensure = 'present',
-  Hash $flags    = {},
-  String $user   = '',
+  Enum['present', 'absent'] $ensure = 'present',
+  Hash                      $flags  = {},
+  Optional[String]          $user   = undef,
 ) {
   require podman::install
 
   # The resource name will be the pod name by default
-  $name_flags = merge({ name => $title }, $flags )
-  $pod_name = $name_flags['name']
+  $pod_name = $title
+  $name_flags = stdlib::merge({ name => $title }, $flags )
 
   # Convert $flags hash to command arguments
   $_flags = $name_flags.reduce('') |$mem, $flag| {
@@ -45,49 +45,42 @@ define podman::pod (
     }
   }
 
-  if $user != '' {
+  if $user != undef and $user != '' {
     ensure_resource('podman::rootless', $user, {})
 
     # Set execution environment for the rootless user
     $exec_defaults = {
-      path        => '/sbin:/usr/sbin:/bin:/usr/bin',
+      cwd         => User[$user]['home'],
+      user        => $user,
+      require     => [Podman::Rootless[$user]],
       environment => [
         "HOME=${User[$user]['home']}",
         "XDG_RUNTIME_DIR=/run/user/${User[$user]['uid']}",
         "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${User[$user]['uid']}/bus",
       ],
-      cwd         => User[$user]['home'],
-      provider    => 'shell',
-      user        => $user,
-      require     => [
-        Podman::Rootless[$user],
-        Service['podman systemd-logind'],
-      ],
     }
   } else {
-    $exec_defaults = {
-      path        => '/sbin:/usr/sbin:/bin:/usr/bin',
-      provider    => 'shell',
-    }
+    $exec_defaults = {}
   }
 
   case $ensure {
     'present': {
       exec { "create_pod_${pod_name}":
-        command => "podman pod create ${_flags}",
-        unless  => "podman pod exists ${pod_name}",
-        *       => $exec_defaults,
-      }
-    }
-    'absent': {
-      exec { "remove_pod_${pod_name}":
-        command => "podman pod rm ${pod_name}",
-        unless  => "podman pod exists ${pod_name}; test $? -eq 1",
-        *       => $exec_defaults,
+        command  => "podman pod create ${_flags}",
+        unless   => "podman pod exists ${pod_name}",
+        path     => '/sbin:/usr/sbin:/bin:/usr/bin',
+        provider => 'shell',
+        *        => $exec_defaults,
       }
     }
     default: {
-        fail('"ensure" must be "present" or "absent"')
+      exec { "remove_pod_${pod_name}":
+        command  => "podman pod rm ${pod_name}",
+        unless   => "podman pod exists ${pod_name}; test $? -eq 1",
+        path     => '/sbin:/usr/sbin:/bin:/usr/bin',
+        provider => 'shell',
+        *        => $exec_defaults,
+      }
     }
   }
 }

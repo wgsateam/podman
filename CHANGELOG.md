@@ -1,5 +1,39 @@
 # Changelog
 
+## Release 0.7.6
+- Bugfix. fixing the onlyi_prc condition #94. Contributed by utkarsh079
+
+## Release 0.7.5
+- Bugfix. Resolve image name to ID before fetching digest to resolve false drift #92. Contributed by optiz0r
+
+## Release 0.7.4
+  - Bugfix. Replace deprecated merge() calls with stdlib::merge() - #68.  Reported by ZaxLofful
+
+## Release 0.7.3
+  - Allow version setting on podman and podman-compose packages #77.  Contributed by broadinstitute
+
+## Release 0.7.2
+  - Bugfix. Typos issue 87 as reported by pheeef
+  - Create podman networks before containers. Issues 78 and 85. Contributed by jonesbrennan
+
+## Release 0.7.1
+  - Include inifiles in module fixtures as required by unit tests 
+  - Explicit lookup for defaults when calling the quadlet defined type from the main class
+  - Add management of /etc/containers/containers.conf #89.  Contributed by fasrc
+
+## Release 0.7.0
+  - Added the quadlet defined type
+  - Use puppet-systemd to manage rootless users
+
+## Release 0.6.7
+  - Bugfix. Avoid deprecated has_key function #64. Contributed by traylenator
+  - Support for Puppet 8.x & puppetlabs/stdlib 9.x #66
+
+## Release 0.6.6
+ - Bugfix. Update install.pp due to false positive on selinux check #60. Contributed by magarvo
+ - Support ArchLinux #61. Contributed by traylenator
+ - Update supported OS list to drop specific versioned releases.
+ 
 ## Release 0.6.5
 
  - Bugfix for issue #55, Typo in network manifest. Identified by CyberLine

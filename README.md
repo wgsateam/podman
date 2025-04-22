@@ -9,20 +9,18 @@
 5. [Limitations - OS compatibility, etc.](#limitations)
 6. [Development - Guide for contributing to the module](#development)
 
-## *** NOTICE ***
-Version 0.6.5 of the module slightly changes the way the container options are stored by Puppet. This will cause
-podman::container resources to detect a state change and re-deploy, interrupting any service running in those containers.
-
 ## Description
 
 Podman enables running standard docker containers without the usual docker daemon.  This has some benefits from a security
 perspective, with the key point of enabling containers to run as an unprivileged user.  Podman also has the concept of a 'pod',
 which is a shared namespace where multiple containers can be deployed and communicate with each other over the loopback
-address of '127.0.0.1'.  Be aware when running rootless containers that published ports are not automatically added to the
-host firewall.  Use another module like [firewalld](https://forge.puppet.com/modules/puppet/firewalld) to open ports on the
-host and the inbound traffic will reach the rootless container.
+address of '127.0.0.1'.
 
-The defined types 'pod', 'image', 'volume', and 'container' are essentially wrappers around the respective podman "create"
+Podman version 4.4 and later include support for [quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
+that enable managing containers directly with systemd unit files and services.  This greatly simplies managing podman services and
+is now supported by this module with the new 'quadlet' defined type that manages the systemd unit files and resulting services.
+
+The defined types 'pod', 'image', 'volume', 'secret' and 'container' are essentially wrappers around the respective podman "create"
 commands (`podman <type> create`).  The defined types support all flags for the command, but require them to be expressed
 using the long form (`--env` instead of `-e`).  Flags that don't require values should set the value to undef (use `~` or
 `null` in YAML).  Flags that are used more than once should be expressed as an array.  The Jenkins example configuration
@@ -36,8 +34,8 @@ package provides a 'docker' command for those that are used to typing 'docker' i
 purposefully compatible with 'docker').
 
 Simply including the module is enough to install the packages.  There is no service associated with podman, so the module just
-installs the packages.  Management of 'pods', 'images', 'volumes', and 'containers' is done using defined types.  The module's
-defined types are all implemented in the main 'podman' class, allowing resources to be declared as hiera hashes.  See the
+installs the packages.  Management of 'pods', 'images', 'volumes', 'containers' and 'quadlets' is done using defined types.  The
+module's defined types are all implemented in the main 'podman' class, allowing resources to be declared as hiera hashes.  See the
 [reference](REFERENCE.md) for usage of the defined types.
 
 ## Usage
@@ -52,6 +50,35 @@ With the module assigned you can manage podman resources using hiera data.  When
 parameter the resources will be owned by the defined user to support rootless containers.  Using rootless containers this
 way also enables 'loginctl enable-linger' on the user so rootless containers can start and run automatically under the assigned
 user account when the system boots.
+
+The module implements quadlet support by allowing the systemd unit file to be represented as a hash.  The only quirk with this
+is that systemd unit files can have sections with duplicate keys while hashes must have unique keys.  To work around this you can
+express hash keys with an array of values to producce the desired systemd unit file.  The following hiera data shows this with
+the 'PublishPort' key.  Note that the rootless "jenkins" user must also be managed as a puppet resource with a UID and valid
+subuid/subgid mappings - see the last example here for those resources.
+```
+podman::quadlets:
+  jenkins-v0:
+    quadlet_type: "volume"
+    user: jenkins
+    settings:
+      Install:
+        WantedBy: jenkins.service
+  jenkins:
+    user: jenkins
+    settings:
+      Container:
+        Image: 'docker.io/jenkins/jenkins:lts'
+        PublishPort:
+          - '8080:8080'
+          - '5000:5000'
+        Environment: 'JENKINS_OPTS="--prefix=/jenkins"'
+        Volume: "systemd-jenkins-v0:/var/jenkins_home"
+      Service:
+        TimeoutStartSec: 300
+      Unit:
+        Requires: "jenkins-v0-volume.service"
+```
 
 ### General podman and systemd notes
 
@@ -76,13 +103,20 @@ systemctl --user status podman-<container_name>
 ### containerd configuration
 
 This module also contains minimal support for editing the `containerd` configuration files that control some of the lower level
-settings for how containers are created. Currently, the only supported configuration file is `/etc/containers/storage.conf`. You
-should be able to set any of the settings with that file using the `$podman::storage_options` parameter. For example (if using Hiera):
+settings for how containers are created. Currently, the only supported configuration files are `/etc/containers/storage.conf` and `/etc/containers/containers.conf`. You
+should be able to set any of the settings with those files using the `$podman::storage_options` and `$podman::containers_options` parameters respectively. For example (if using Hiera):
 
 ```yaml
 podman::storage_options:
   storage:
     rootless_storage_path: '"/tmp/containers-user-$UID/storage"'
+```
+
+
+```yaml
+podman::containers_options:
+  engine:
+    cgroup_manager: '"cgroupfs"'
 ```
 
 **Note the use of double quotes inside single quotes above.** This is due to the way the [puppetlabs/inifile](https://github.com/puppetlabs/puppetlabs-inifile/) module works currently.
@@ -98,6 +132,7 @@ here is using hiera lookup for class assignments.  The example will perform the 
 * Use `loginctl` to `enable-linger` on the 'jenkins' user so the user's containers can run as a systemd user service
 * Creates volume `jenkins` owned by user `jenkins`
 * Creates container `jenkins` from the defined image source owned by user `jenkins`
+* Creates secret `db_pass` with secret version and gives it to jenkins container as an environment variable.
 * Sets container flags to label the container, publish ports, and attach the previously created `jenkins` volume
 * Set service flags for the systemd service to timeout at 60 seconds
 * A systemd service `podman-<container_name>` is created, enabled, and started that runs as a user service
@@ -152,6 +187,16 @@ podman::volumes:
   jenkins:
     user: jenkins
 
+lookup_options:
+  podman::secret::secret:
+    convert_to: "Sensitive"
+podman::secret:
+  db_pass:
+    user: jenkins
+    secret: very
+    label:
+      - version=20230615
+
 podman::containers:
   jenkins:
     user: jenkins
@@ -163,6 +208,8 @@ podman::containers:
         - '8080:8080'
         - '50000:50000'
       volume: 'jenkins:/var/jenkins_home'
+      secret:
+        - 'db_pass,type=env,target=DB_PASS'
     service_flags:
       timeout: '60'
     require:

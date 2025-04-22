@@ -30,12 +30,12 @@
 #   }
 #
 define podman::image (
-  String $image,
-  String $ensure = 'present',
-  Hash $flags    = {},
-  String $user   = '',
-  Array $exec_env = [],
-){
+  String                    $image,
+  Enum['present', 'absent'] $ensure   = 'present',
+  Hash                      $flags    = {},
+  Optional[String]          $user     = undef,
+  Array                     $exec_env = [],
+) {
   require podman::install
 
   # Convert $flags hash to command arguments
@@ -52,28 +52,23 @@ define podman::image (
     }
   }
 
-  if $user != '' {
+  if $user != undef and $user != '' {
     ensure_resource('podman::rootless', $user, {})
 
     # Set execution environment for the rootless user
     $exec_defaults = {
-      path        => '/sbin:/usr/sbin:/bin:/usr/bin',
-      environment => [
-          "HOME=${User[$user]['home']}",
-          "XDG_RUNTIME_DIR=/run/user/${User[$user]['uid']}",
-          "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${User[$user]['uid']}/bus",
-        ] + $exec_env,
       cwd         => User[$user]['home'],
       provider    => 'shell',
       user        => $user,
-      require     => [
-        Podman::Rootless[$user],
-        Service['podman systemd-logind'],
-      ],
+      require     => [Podman::Rootless[$user]],
+      environment => [
+        "HOME=${User[$user]['home']}",
+        "XDG_RUNTIME_DIR=/run/user/${User[$user]['uid']}",
+        "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${User[$user]['uid']}/bus",
+      ] + $exec_env,
     }
   } else {
     $exec_defaults = {
-      path        => '/sbin:/usr/sbin:/bin:/usr/bin',
       environment => $exec_env,
     }
   }
@@ -83,18 +78,17 @@ define podman::image (
       exec { "pull_image_${title}":
         command => "podman image pull ${_flags} ${image}",
         unless  => "podman image exists ${image}",
-        *       => $exec_defaults,
-      }
-    }
-    'absent': {
-      exec { "pull_image_${title}":
-        command => "podman image pull ${_flags} ${image}",
-        unless  => "podman rmi ${image}",
+        path    => '/sbin:/usr/sbin:/bin:/usr/bin',
         *       => $exec_defaults,
       }
     }
     default: {
-      fail('"ensure" must be "present" or "absent"')
+      exec { "pull_image_${title}":
+        command => "podman image pull ${_flags} ${image}",
+        unless  => "podman rmi ${image}",
+        path    => '/sbin:/usr/sbin:/bin:/usr/bin',
+        *       => $exec_defaults,
+      }
     }
   }
 }

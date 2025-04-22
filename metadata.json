@@ -1,6 +1,6 @@
 {
   "name": "southalc-podman",
-  "version": "0.6.5",
+  "version": "0.7.6",
   "author": "Chris Southall",
   "summary": "Manage podman containers with puppet",
   "license": "Apache-2.0",
@@ -10,11 +10,11 @@
   "dependencies": [
     {
       "name": "puppetlabs/stdlib",
-      "version_requirement": ">= 4.1.0 <= 9.0.0"
+      "version_requirement": ">= 4.1.0 <= 10.0.0"
     },
     {
       "name": "puppetlabs/concat",
-      "version_requirement": ">= 2.1.0 <= 8.0.0"
+      "version_requirement": ">= 2.1.0 <= 10.0.0"
     },
     {
       "name": "puppetlabs/selinux_core",
@@ -22,57 +22,48 @@
     },
     {
       "name": "puppetlabs/inifile",
-      "version_requirement": ">= 4.2.0 <= 6.0.0"
+      "version_requirement": ">= 4.2.0 <= 7.0.0"
+    },
+    {
+      "name": "puppet/systemd",
+      "version_requirement": ">= 7.0.0 <= 8.0.0"
+    },
+    {
+      "name": "southalc/hashfile",
+      "version_requirement": ">= 1.4.0 <= 2.0.0"
     }
   ],
   "operatingsystem_support": [
     {
-      "operatingsystem": "CentOS",
-      "operatingsystemrelease": [
-        "7",
-        "8"
-      ]
+      "operatingsystem": "Archlinux"
     },
     {
-      "operatingsystem": "OracleLinux",
-      "operatingsystemrelease": [
-        "7",
-        "8"
-      ]
+      "operatingsystem": "CentOS"
     },
     {
-      "operatingsystem": "RedHat",
-      "operatingsystemrelease": [
-        "7",
-        "8"
-      ]
+      "operatingsystem": "Debian"
     },
     {
-      "operatingsystem": "Scientific",
-      "operatingsystemrelease": [
-        "7"
-      ]
+      "operatingsystem": "OracleLinux"
     },
     {
-      "operatingsystem": "Fedora",
-      "operatingsystemrelease": [
-        "29",
-        "30",
-        "31",
-        "32",
-        "33",
-        "34",
-        "35"
-      ]
+      "operatingsystem": "RedHat"
+    },
+    {
+      "operatingsystem": "Fedora"
+    },
+    {
+      "operatingsystem": "Ubuntu"
     }
   ],
   "requirements": [
     {
       "name": "puppet",
-      "version_requirement": ">= 4.10.0 < 8.0.0"
+      "version_requirement": ">= 4.10.0 < 9.0.0"
     }
   ],
-  "pdk-version": "2.3.0",
-  "template-url": "pdk-default#2.3.0",
-  "template-ref": "tags/2.3.0-0-g8aaceff"
+  "pdk-version": "3.3.0",
+  "template-url": "pdk-default#3.3.0",
+  "template-ref": "tags/3.3.0-0-g5d17ec1",
+  "tags": ["podman", "container", "containers", "quadlet", "systemd"]
 }
