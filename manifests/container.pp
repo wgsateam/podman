@@ -181,20 +181,36 @@ define podman::container (
 
       # Re-deploy when $update is true and the container image has been updated
       if $update {
-        $unless_vci = @("END"/$L)
-          if podman container exists ${container_name}
-            then
-            image_name=\$(podman container inspect ${container_name} --format '{{.ImageName}}')
-            image_id=\$(podman image inspect \${image_name} --format='{{.ID}}')
-            running_digest=\$(podman image inspect \${image_id} --format '{{.Digest}}')
-            latest_digest=\$(skopeo inspect docker://${image} | \
-              ${_ruby} -rjson -e 'puts (JSON.parse(STDIN.read))["Digest"]')
-            [[ $? -ne 0 ]] && latest_digest=\$(skopeo inspect --no-creds docker://${image} | \
-              ${_ruby} -rjson -e 'puts (JSON.parse(STDIN.read))["Digest"]')
-            test -z "\${latest_digest}" && exit 0     # Do not update if unable to get latest digest
-            test "\${running_digest}" = "\${latest_digest}"
-          fi
-          | END
+        if (($facts['os']['family'] == 'RedHat') and (Integer($facts['os']['release']['major']) > 7)) {
+          $unless_vci = @("END"/$L)
+            if podman container exists ${container_name}
+              then
+              image_name=\$(podman container inspect ${container_name} --format '{{.ImageName}}')
+              image_id=\$(podman image inspect \${image_name} --format='{{.ID}}')
+              running_digest=\$(podman image inspect \${image_id} --format '{{.Digest}}')
+              latest_digest=\$(skopeo inspect docker://${image} | \
+                ${_ruby} -rjson -e 'puts (JSON.parse(STDIN.read))["Digest"]')
+              [[ $? -ne 0 ]] && latest_digest=\$(skopeo inspect --no-creds docker://${image} | \
+                ${_ruby} -rjson -e 'puts (JSON.parse(STDIN.read))["Digest"]')
+              test -z "\${latest_digest}" && exit 0     # Do not update if unable to get latest digest
+              test "\${running_digest}" = "\${latest_digest}"
+            fi
+            | END
+        } else {
+          $unless_vci = @("END"/$L)
+            if podman container exists ${container_name}
+              then
+              image_name=\$(podman container inspect ${container_name} --format '{{.ImageName}}')
+              running_digest=\$(podman image inspect \${image_name} --format '{{.Digest}}')
+              latest_digest=\$(skopeo inspect docker://${image} | \
+                ${_ruby} -rjson -e 'puts (JSON.parse(STDIN.read))["Digest"]')
+              [[ $? -ne 0 ]] && latest_digest=\$(skopeo inspect --no-creds docker://${image} | \
+                ${_ruby} -rjson -e 'puts (JSON.parse(STDIN.read))["Digest"]')
+              test -z "\${latest_digest}" && exit 0     # Do not update if unable to get latest digest
+              test "\${running_digest}" = "\${latest_digest}"
+            fi
+            | END
+        }
 
         exec { "verify_container_image_${handle}":
           command  => 'true',
