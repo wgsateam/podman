@@ -185,7 +185,8 @@ define podman::container (
           if podman container exists ${container_name}
             then
             image_name=\$(podman container inspect ${container_name} --format '{{.ImageName}}')
-            running_digest=\$(podman image inspect $(podman image inspect \${image_name} --format='{{.ID}}') --format '{{.Digest}}')
+            image_id=\$(podman image inspect \${image_name} --format='{{.ID}}')
+            running_digest=\$(podman image inspect \${image_id} --format '{{.Digest}}')
             latest_digest=\$(skopeo inspect docker://${image} | \
               ${_ruby} -rjson -e 'puts (JSON.parse(STDIN.read))["Digest"]')
             [[ $? -ne 0 ]] && latest_digest=\$(skopeo inspect --no-creds docker://${image} | \
